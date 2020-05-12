@@ -1,6 +1,12 @@
-N_SLAVES = 10
+import pywren_ibm_cloud as pywren
+from cos_backend import COSBackend
+import pickle
+import time
+
+N_SLAVES = 1
 nom_cos='sdurv'
-fitxer="p_write_"
+fitxer='p_write_'
+
 
 def master(id, x, ibm_cos):
     write_permission_list = []
@@ -22,11 +28,24 @@ def slave(id, x, ibm_cos):
     ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
 
     # 2. Monitor COS bucket each X seconds until it finds a file called "write_{id}"
-    while (disponible = False):
-        time.sleep(2)
+    nom_fitxer =  'write_{' + str(id) + '}'
+    disponible=False
+    while (disponible == False):
+        time.sleep(5)
+        try:
+            temporal = ibm_cos.get_object(Bucket=nom_cos, Key=nom_fitxer)['Body'].read()
+            disponible = True
+            break
+        except Exception:
+            pass
+
     # 3. If write_{id} is in COS: get result.txt, append {id}, and put back to COS result.txt
+    resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
+    resultat = pickle.loads(resultat)
+    resultat = resultat + str(id) + ' '
+    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',Body=pickle.dumps(resultat, pickle.HIGHEST_PROTOCOL))
     # 4. Finish
-    # No need to return anything
+    
     
 if __name__ == '__main__':
  pw = pywren.ibm_cf_executor()
@@ -35,4 +54,8 @@ if __name__ == '__main__':
  write_permission_list = pw.get_result()
 
  # Get result.txt
- # check if content of result.txt == write_permission_list
+ cos = COSBackend()
+ results = cos.get_object('sdurv', 'result.txt')
+ results = pickle.loads(results)
+ print (results)
+  # check if content of result.txt == write_permission_list
