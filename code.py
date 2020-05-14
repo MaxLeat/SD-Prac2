@@ -17,7 +17,7 @@ def master(id, x, ibm_cos):
     llista = []
     continguts = []
     # Aixo nose com fer una llista sense valors, ja que em dona error al bucle d'abaix de que esta fora de rango
-    dates = [1, 2]
+    dates = []
     diccionari = {}
 
     # Agafo tots els fitxers del meu cos que comencin per Matriu (Aprofitant la practica 1)
@@ -32,7 +32,7 @@ def master(id, x, ibm_cos):
     continguts = llista['Contents']  # Agafem els valors de "Contents"
     while (i < len(continguts)):  # Llegim els Contents de tots els fitxer que hem obtingut
         # Guardem la ultima data de modificacio a Dates
-        dates[i] = continguts[i]['LastModified']
+        dates.append(continguts[i]['LastModified'])
         # Creem un diccionari amb les Dates : Nom del fitxer
         diccionari[continguts[i]['LastModified']] = continguts[i]['Key']
         i = i+1
@@ -56,7 +56,7 @@ def master(id, x, ibm_cos):
 
     # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
     #ibm_cos.delete_object(Bucket=nom_cos, Key=fitxer) AIXO NO FUNCIONA NO SE PERQUE
-    write_permission_list.append(nom_fitxer.split("_")[1])
+    write_permission_list.append(nom_fitxer.split("_")[1]) # Posem el ID a write_permission_list
     # 7. Monitor "result.json" object each X seconds until it is updated
 
     # 8. Delete from COS “write_{id}”
