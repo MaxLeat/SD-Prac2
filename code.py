@@ -2,6 +2,7 @@ import pywren_ibm_cloud as pywren
 from cos_backend import COSBackend
 import pickle
 import time
+import datetime
 
 N_SLAVES = 1
 nom_cos = 'ramonsd'
@@ -16,12 +17,12 @@ def master(id, x, ibm_cos):
     write_permission_list = []
     llista = []
     continguts = []
-    # Aixo nose com fer una llista sense valors, ja que em dona error al bucle d'abaix de que esta fora de rango
     dates = []
     diccionari = {}
-
-    # Agafo tots els fitxers del meu cos que comencin per Matriu (Aprofitant la practica 1)
-   
+    temps_anterior=datetime.datetime.now()
+    ibm_cos.put_object(Bucket=nom_cos, Key='results.json',
+                       Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
+ 
     # 1. monitor COS bucket each X seconds
     #while (i==0):
     # --------------------------------------------------------- INDENTAR ------------------------------------------------------------
@@ -55,20 +56,30 @@ def master(id, x, ibm_cos):
                         Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
 
     # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
-    #ibm_cos.delete_object(Bucket=nom_cos, Key=fitxer) AIXO NO FUNCIONA NO SE PERQUE
+    #ibm_cos.delete_object(Bucket=nom_cos, Key=fitxer) #AIXO FUNCIONA, PERO ES QUEDA PILLAT
     write_permission_list.append(nom_fitxer.split("_")[1]) # Posem el ID a write_permission_list
-    # 7. Monitor "result.json" object each X seconds until it is updated
-
-    # 8. Delete from COS “write_{id}”
-    # Agafo tots els fitxers del meu cos que comencin per Matriu (Aprofitant la practica 1)
     
+    # 7. Monitor "result.json" object each X seconds until it is updated
+    updated=False
+    #while(updated==False):
+    # --------------------------------------------------------- INDENTAR ------------------------------------------------------------
+    #time.sleep(TIME)
+    json=ibm_cos.get_object(Bucket=nom_cos, Key='results.json')
+    #if (temps_anterior>json['LastModified']): #
+        #updated=True
+        #temps_anterior=json['LastModified']
+    # --------------------------------------------------------- INDENTAR ------------------------------------------------------------
+    
+    # 8. Delete from COS “write_{id}”
+    ibm_cos.delete_object(Bucket=nom_cos, Key=nom_fitxer)      
 
     # 9. Back to step 1 until no "p_write_{id}" objects in the bucket
     # --------------------------------------------------------- INDENTAR ------------------------------------------------------------
-    return fitxer  # Tinc posat llista temporalment per veure que agafa el fitxer correcte
+    return dates[0] # Tinc posat aixo temporalment per veure que agafa el fitxer correcte
 
 
 def slave(id, x, ibm_cos):
+    
     data = ''
     # 1. Write empty "p_write_{id}" object into COS
     nom_fitxer = fitxer + '{' + '0' + '}'
@@ -92,10 +103,10 @@ def slave(id, x, ibm_cos):
             pass
 
     # 3. If write_{id} is in COS: get result.txt, append {id}, and put back to COS result.txt
-    # resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
-    # resultat = pickle.loads(resultat)
-    # resultat = resultat + str(id) + ' '
-    # ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',Body=pickle.dumps(resultat, pickle.HIGHEST_PROTOCOL))
+    resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
+    resultat = pickle.loads(resultat)
+    resultat = resultat + str(id) + ' '
+    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',Body=pickle.dumps(resultat, pickle.HIGHEST_PROTOCOL))
     # 4. Finish
 
 
@@ -108,6 +119,7 @@ if __name__ == '__main__':
     pw.call_async(master, 0)
     pw.map(slave, range(N_SLAVES))
     write_permission_list = pw.get_result()
+    print(datetime.datetime.now())
     print(write_permission_list)
     # Get result.txt
     cos = COSBackend()
