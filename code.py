@@ -4,17 +4,18 @@ import pickle
 import time
 import datetime
 
-N_SLAVES = 5
+N_SLAVES = 3
 nom_cos = 'sdurv'
 fitxer = 'p_write_'
 TIME = 1
 
 
 def master(id, x, ibm_cos):
-    time.sleep(6)
+    #Esperem 1 segon a que almenys algun slave hagi creat el seu fitxer
+    time.sleep(1)
     objectes = True
     i = 0
-    data = ''
+    data = []
     fitxer = ""
     write_permission_list = []
     llista = []
@@ -28,11 +29,7 @@ def master(id, x, ibm_cos):
     # Agafem el temps i eliminem la zona horaria.
     json_time = json['Contents'][0]['LastModified'].replace(tzinfo=None)
     temps_anterior=json_time
-    llista = ibm_cos.list_objects(Bucket=nom_cos, Prefix='p_write')
-    try:
-        continguts = llista['Contents']  # Agafem els valors de "Contents"
-    except:
-        pass
+
     # 1. monitor COS bucket each X seconds
     while objectes:
 
@@ -67,7 +64,9 @@ def master(id, x, ibm_cos):
             # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
             ibm_cos.delete_object(Bucket=nom_cos, Key=fitxer)
             # Posem el ID a write_permission_list
-            write_permission_list.append(nom_fitxer.split("_")[1])
+            identificador = nom_fitxer.split("_")[1]
+            identificador = int(identificador[1:(len(identificador)-1)])
+            write_permission_list.append(identificador)
 
             # 7. Monitor "result.json" object each X seconds until it is updated
             updated = False
@@ -90,7 +89,6 @@ def master(id, x, ibm_cos):
        
         time.sleep(TIME)
         # 9. Back to step 1 until no "p_write_{id}" objects in the bucket
-    # Tinc posat aixo temporalment per veure que agafa el fitxer correcte
     return write_permission_list
 
 
@@ -111,14 +109,14 @@ def slave(id, x, ibm_cos):
                 'Body'].read()
             disponible = True
         except:
-            disponible= False
+            pass
         time.sleep(TIME)
 
     # 3. If write_{id} is in COS: get result.txt, append {id}, and put back to COS result.txt
     resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')[
         'Body'].read()
     resultat = pickle.loads(resultat)
-    resultat = resultat + str(id) + ' '
+    resultat.append(id)
     ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',
                        Body=pickle.dumps(resultat, pickle.HIGHEST_PROTOCOL))
     
@@ -130,12 +128,19 @@ if __name__ == '__main__':
     actual = datetime.datetime.now()
     pw.map(slave, range(N_SLAVES))
     write_permission_list = pw.get_result()
+    print("El resultat hauria de ser: ")
     print(write_permission_list)
 
     # Get result.txt
     cos = COSBackend()
     results = cos.get_object('sdurv', 'result.txt')
     results = pickle.loads(results)
+    print("El resultat es:")
     print(results)
 
     # check if content of result.txt == write_permission_list
+
+    if (write_permission_list == results):
+        print("Ha funcionat correctament")
+    else:
+        print("No ha funcionat correctament")
