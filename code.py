@@ -4,8 +4,8 @@ import pickle
 import time
 import datetime
 
-N_SLAVES = 20
-nom_cos = 'ramonsd'
+N_SLAVES = 15
+nom_cos = 'sdurv'
 fitxer = 'p_write_'
 TIME = 1
 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # Get result.txt
     cos = COSBackend()
-    results = cos.get_object('ramonsd', 'result.txt')
+    results = cos.get_object(nom_cos, 'result.txt')
     results = pickle.loads(results)
     print("El resultat es:")
     print(results)
