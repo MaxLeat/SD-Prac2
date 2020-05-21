@@ -4,15 +4,27 @@ import pickle
 import time
 import datetime
 
-N_SLAVES = 15
+N_SLAVES = 4
 nom_cos = 'sdurv'
 fitxer = 'p_write_'
-TIME = 1
+TIME = 0.1
 
 
 def master(id, x, ibm_cos):
-    # Esperem 1 segon a que almenys algun slave hagi creat el seu fitxer
-    time.sleep(1)
+    data = []
+    no_iniciat=True
+
+    # Esperem a que almenys algun slave hagi creat el seu fitxer per evitar que pari abans de temps
+    while no_iniciat:
+        try:
+            llista = ibm_cos.list_objects(Bucket=nom_cos, Prefix='p_write')
+            dates= []
+            for dic in llista['Contents']:
+                dates.append([dic['Key'], dic ['LastModified']])
+            no_iniciat=False
+        except:
+            pass
+
     objectes = True
     i = 0
     data = []
@@ -80,6 +92,7 @@ def master(id, x, ibm_cos):
 
         time.sleep(TIME)
         # 9. Back to step 1 until no "p_write_{id}" objects in the bucket
+
     return write_permission_list
 
 
