@@ -1,10 +1,9 @@
 import pywren_ibm_cloud as pywren
-from cos_backend import COSBackend
 import pickle
 import time
 import datetime
 
-N_SLAVES = 4
+N_SLAVES = 100
 nom_cos = 'sdurv'
 fitxer = 'p_write_'
 TIME = 0.1
@@ -33,8 +32,7 @@ def master(id, x, ibm_cos):
     llista = []
 
    # Guardem al moment de creació del result
-    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',
-                       Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
+    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
     json = ibm_cos.list_objects(Bucket=nom_cos, Prefix='result')
     # Agafem el temps i eliminem la zona horaria.
     json_time = json['Contents'][0]['LastModified'].replace(tzinfo=None)
@@ -62,8 +60,7 @@ def master(id, x, ibm_cos):
             # Separem el fitxer del cos i el separem per "_"
             id = fitxer.split("_", 1)
             nom_fitxer = id[1]  # Ens quedem amb la segona part "write_{id}"
-            ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,
-                               Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
+            ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
 
             # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
             ibm_cos.delete_object(Bucket=nom_cos, Key=fitxer)
@@ -101,8 +98,7 @@ def slave(id, x, ibm_cos):
     data = ''
     # 1. Write empty "p_write_{id}" object into COS
     nom_fitxer = 'p_write_{' + str(id) + '}'
-    ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,
-                       Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
+    ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
 
     # 2. Monitor COS bucket each X seconds until it finds a file called "write_{id}"
     nom_fitxer = 'write_{' + str(id) + '}'
@@ -117,12 +113,10 @@ def slave(id, x, ibm_cos):
         time.sleep(TIME)
 
     # 3. If write_{id} is in COS: get result.txt, append {id}, and put back to COS result.txt
-    resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')[
-        'Body'].read()
+    resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
     resultat = pickle.loads(resultat)
     resultat.append(id)
-    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',
-                       Body=pickle.dumps(resultat, pickle.HIGHEST_PROTOCOL))
+    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',Body=pickle.dumps(resultat, pickle.HIGHEST_PROTOCOL))
 
     # 4. Finish
 
@@ -130,22 +124,27 @@ def slave(id, x, ibm_cos):
 if __name__ == '__main__':
     pw = pywren.ibm_cf_executor()
     ibm_cos = pw.internal_storage.get_client()
-    pw.call_async(master, 0)
-    actual = datetime.datetime.now()
-    pw.map(slave, range(N_SLAVES))
-    write_permission_list = pw.get_result()
-    print("El resultat hauria de ser: ")
-    print(write_permission_list[0])
 
-    # Get result.txt
-    results = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
-    results = pickle.loads(results)
-    print("El resultat es:")
-    print(results)
-
-    # check if content of result.txt == write_permission_list
-
-    if (write_permission_list[0] == results):
-        print("Ha funcionat correctament")
+    #Mirem si el N_Slaves és mes gran que 100 o més petit que 0
+    if N_SLAVES > 100 or N_SLAVES <= 0:
+        print("El número de slaves no es correcte ")
     else:
-        print("No ha funcionat correctament")
+        pw.call_async(master, 0)
+        actual = datetime.datetime.now()
+        pw.map(slave, range(N_SLAVES))
+        write_permission_list = pw.get_result()
+        print("El resultat hauria de ser: ")
+        print(write_permission_list[0])
+
+        # Get result.txt
+        results = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
+        results = pickle.loads(results)
+        print("El resultat es:")
+        print(results)
+
+        # check if content of result.txt == write_permission_list
+
+        if (write_permission_list[0] == results):
+            print("Ha funcionat correctament")
+        else:
+            print("No ha funcionat correctament")
