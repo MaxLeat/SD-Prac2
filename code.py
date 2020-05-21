@@ -129,23 +129,23 @@ def slave(id, x, ibm_cos):
 
 if __name__ == '__main__':
     pw = pywren.ibm_cf_executor()
+    ibm_cos = pw.internal_storage.get_client()
     pw.call_async(master, 0)
     actual = datetime.datetime.now()
     pw.map(slave, range(N_SLAVES))
     write_permission_list = pw.get_result()
     print("El resultat hauria de ser: ")
-    print(write_permission_list)
+    print(write_permission_list[0])
 
     # Get result.txt
-    cos = COSBackend()
-    results = cos.get_object(nom_cos, 'result.txt')
+    results = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
     results = pickle.loads(results)
     print("El resultat es:")
     print(results)
 
     # check if content of result.txt == write_permission_list
 
-    if (write_permission_list == results):
+    if (write_permission_list[0] == results):
         print("Ha funcionat correctament")
     else:
         print("No ha funcionat correctament")
