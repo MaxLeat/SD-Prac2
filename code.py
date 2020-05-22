@@ -3,7 +3,7 @@ import pickle
 import time
 import datetime
 
-N_SLAVES = 100
+N_SLAVES = 5
 nom_cos = 'sdurv'
 fitxer = 'p_write_'
 TIME = 0.1
@@ -22,6 +22,7 @@ def master(id, x, ibm_cos):
                 dates.append([dic['Key'], dic ['LastModified']])
             no_iniciat=False
         except:
+            time.sleep(TIME)
             pass
 
     objectes = True
