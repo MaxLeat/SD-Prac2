@@ -4,15 +4,19 @@ import time
 import datetime
 import json as jason
 
-N_SLAVES = 50
-nom_cos = 'ramonsd2'
+N_SLAVES = 15
+nom_cos = 'sdurv'
 fitxer = 'p_write_'
-TIME = 0.2
+TIME = 0.1
 
 
 def master(id, x, ibm_cos):
     data = []
     no_iniciat = True
+    objectes = True
+    fitxer = ""
+    write_permission_list = []
+    llista = []
 
     # Esperem a que almenys algun slave hagi creat el seu fitxer per evitar que pari abans de temps
     while no_iniciat:
@@ -25,13 +29,6 @@ def master(id, x, ibm_cos):
         except:
             time.sleep(TIME)
             pass
-
-    objectes = True
-    i = 0
-    data = [ ]
-    fitxer = ""
-    write_permission_list = []
-    llista = []
 
    # Guardem al moment de creació del result
     ibm_cos.put_object(Bucket=nom_cos, Key='result.json',
@@ -137,7 +134,6 @@ if __name__ == '__main__':
         print("El número de slaves no es correcte ")
     else:
         pw.call_async(master, 0)
-        actual = datetime.datetime.now()
         pw.map(slave, range(N_SLAVES))
         write_permission_list = pw.get_result()
         print("El resultat hauria de ser: ")
