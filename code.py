@@ -2,41 +2,43 @@ import pywren_ibm_cloud as pywren
 import pickle
 import time
 import datetime
+import json as jason
 
-N_SLAVES = 5
-nom_cos = 'sdurv'
+N_SLAVES = 50
+nom_cos = 'ramonsd2'
 fitxer = 'p_write_'
-TIME = 0.1
+TIME = 0.2
 
 
 def master(id, x, ibm_cos):
     data = []
-    no_iniciat=True
+    no_iniciat = True
 
     # Esperem a que almenys algun slave hagi creat el seu fitxer per evitar que pari abans de temps
     while no_iniciat:
         try:
             llista = ibm_cos.list_objects(Bucket=nom_cos, Prefix='p_write')
-            dates= []
+            dates = []
             for dic in llista['Contents']:
-                dates.append([dic['Key'], dic ['LastModified']])
-            no_iniciat=False
+                dates.append([dic['Key'], dic['LastModified']])
+            no_iniciat = False
         except:
             time.sleep(TIME)
             pass
 
     objectes = True
     i = 0
-    data = []
+    data = [ ]
     fitxer = ""
     write_permission_list = []
     llista = []
 
    # Guardem al moment de creació del result
-    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
-    json = ibm_cos.list_objects(Bucket=nom_cos, Prefix='result')
+    ibm_cos.put_object(Bucket=nom_cos, Key='result.json',
+                       Body=jason.dumps(data))
+    resultat = ibm_cos.list_objects(Bucket=nom_cos, Prefix='result')
     # Agafem el temps i eliminem la zona horaria.
-    json_time = json['Contents'][0]['LastModified'].replace(tzinfo=None)
+    json_time = resultat['Contents'][0]['LastModified'].replace(tzinfo=None)
     temps_anterior = json_time
 
     # 1. monitor COS bucket each X seconds
@@ -46,10 +48,10 @@ def master(id, x, ibm_cos):
         try:
             llista = ibm_cos.list_objects(Bucket=nom_cos, Prefix='p_write')
             i = 0
-            dates= []
+            dates = []
             for dic in llista['Contents']:
-                dates.append([dic['Key'], dic ['LastModified']])
-                
+                dates.append([dic['Key'], dic['LastModified']])
+
             # 3. Order objects by time of creation
             dates.sort(key=lambda x: x[1])
             # 4. Pop first object of the list "p_write_{id}"
@@ -61,7 +63,8 @@ def master(id, x, ibm_cos):
             # Separem el fitxer del cos i el separem per "_"
             id = fitxer.split("_", 1)
             nom_fitxer = id[1]  # Ens quedem amb la segona part "write_{id}"
-            ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
+            ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,
+                               Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
 
             # 6. Delete from COS "p_write_{id}", save {id} in write_permission_list
             ibm_cos.delete_object(Bucket=nom_cos, Key=fitxer)
@@ -75,9 +78,9 @@ def master(id, x, ibm_cos):
             while(updated == False):
                 time.sleep(TIME)
                 # Utilitzem aquesta funcio ja que ens dona els milisegons, cosa que el get_object no
-                json = ibm_cos.list_objects(Bucket=nom_cos, Prefix='result')
+                descarga = ibm_cos.list_objects(Bucket=nom_cos, Prefix='result')
                 # Agafem el temps i eliminem la zona horaria.
-                json_time = json['Contents'][0]['LastModified'].replace(
+                json_time = descarga['Contents'][0]['LastModified'].replace(
                     tzinfo=None)
                 if (temps_anterior < json_time):
                     updated = True
@@ -99,7 +102,8 @@ def slave(id, x, ibm_cos):
     data = ''
     # 1. Write empty "p_write_{id}" object into COS
     nom_fitxer = 'p_write_{' + str(id) + '}'
-    ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
+    ibm_cos.put_object(Bucket=nom_cos, Key=nom_fitxer,
+                       Body=pickle.dumps(data, pickle.HIGHEST_PROTOCOL))
 
     # 2. Monitor COS bucket each X seconds until it finds a file called "write_{id}"
     nom_fitxer = 'write_{' + str(id) + '}'
@@ -114,10 +118,12 @@ def slave(id, x, ibm_cos):
         time.sleep(TIME)
 
     # 3. If write_{id} is in COS: get result.txt, append {id}, and put back to COS result.txt
-    resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
-    resultat = pickle.loads(resultat)
+    resultat = ibm_cos.get_object(Bucket=nom_cos, Key='result.json')[
+        'Body'].read()
+    resultat = jason.loads(resultat)
     resultat.append(id)
-    ibm_cos.put_object(Bucket=nom_cos, Key='result.txt',Body=pickle.dumps(resultat, pickle.HIGHEST_PROTOCOL))
+    ibm_cos.put_object(Bucket=nom_cos, Key='result.json',
+                       Body=jason.dumps(resultat))
 
     # 4. Finish
 
@@ -126,7 +132,7 @@ if __name__ == '__main__':
     pw = pywren.ibm_cf_executor()
     ibm_cos = pw.internal_storage.get_client()
 
-    #Mirem si el N_Slaves és mes gran que 100 o més petit que 0
+    # Mirem si el N_Slaves és mes gran que 100 o més petit que 0
     if N_SLAVES > 100 or N_SLAVES <= 0:
         print("El número de slaves no es correcte ")
     else:
@@ -138,8 +144,9 @@ if __name__ == '__main__':
         print(write_permission_list[0])
 
         # Get result.txt
-        results = ibm_cos.get_object(Bucket=nom_cos, Key='result.txt')['Body'].read()
-        results = pickle.loads(results)
+        results = ibm_cos.get_object(Bucket=nom_cos, Key='result.json')[
+            'Body'].read()
+        results = jason.loads(results)
         print("El resultat es:")
         print(results)
 
