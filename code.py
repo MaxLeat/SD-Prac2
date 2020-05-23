@@ -4,7 +4,7 @@ import time
 import datetime
 import json as jason
 
-N_SLAVES = 15
+N_SLAVES = 5
 nom_cos = 'sdurv'
 fitxer = 'p_write_'
 TIME = 0.1
@@ -12,23 +12,10 @@ TIME = 0.1
 
 def master(id, x, ibm_cos):
     data = []
-    no_iniciat = True
     objectes = True
     fitxer = ""
     write_permission_list = []
     llista = []
-
-    # Esperem a que almenys algun slave hagi creat el seu fitxer per evitar que pari abans de temps
-    while no_iniciat:
-        try:
-            llista = ibm_cos.list_objects(Bucket=nom_cos, Prefix='p_write')
-            dates = []
-            for dic in llista['Contents']:
-                dates.append([dic['Key'], dic['LastModified']])
-            no_iniciat = False
-        except:
-            time.sleep(TIME)
-            pass
 
    # Guardem al moment de creació del result
     ibm_cos.put_object(Bucket=nom_cos, Key='result.json',
@@ -133,11 +120,11 @@ if __name__ == '__main__':
     if N_SLAVES > 100 or N_SLAVES <= 0:
         print("El número de slaves no es correcte ")
     else:
-        pw.call_async(master, 0)
         pw.map(slave, range(N_SLAVES))
+        pw.call_async(master, 0)
         write_permission_list = pw.get_result()
         print("El resultat hauria de ser: ")
-        print(write_permission_list[0])
+        print(write_permission_list)
 
         # Get result.txt
         results = ibm_cos.get_object(Bucket=nom_cos, Key='result.json')[
@@ -148,7 +135,7 @@ if __name__ == '__main__':
 
         # check if content of result.txt == write_permission_list
 
-        if (write_permission_list[0] == results):
+        if (write_permission_list == results):
             print("Ha funcionat correctament")
         else:
             print("No ha funcionat correctament")
